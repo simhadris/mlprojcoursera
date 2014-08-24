@@ -1,0 +1,81 @@
+---
+output: pdf_document
+---
+### "Weight Lifting Data Prediction"
+
+#### Background:
+Data collected from wearable devices such as fitbit, fuelband was used to quantify how well a perticular activity was performed by the users. This perticular data was from 6 participants who performed barbel lifts correctly and incorrectly in 5 different ways.
+More information is available from the source below.
+
+Source & Credits: http://groupware.les.inf.puc-rio.br/har
+
+#### Objective:
+Goal is to predict the manner in which the exercise was performed. This is determined by the "classe" variable in the training set.
+
+#### Loading Data
+The training data for this project are available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+```{r Loading Data, echo=TRUE}
+DF <- read.csv("pml-training.csv", header=TRUE, na.strings="")
+testing<-read.csv("pml-testing.csv", header=TRUE, na.strings="")
+
+```
+
+#### Pre-processing
+We identify and remove the columns with NA values as they don't make good predictors.
+
+```{r Pre-processing, echo=TRUE}
+DF[DF == '' | DF == 'NA'] <- NA 
+indexes <- which(colSums(is.na(DF))!=0)
+preprocessedDF <- DF[,-indexes]
+# Also removed the columns like time stamps and factor variables with less than 2 levels.
+preprocessedDF <-preprocessedDF[,-(1:7)]
+```
+
+#### Fitting the Model
+Since the prediction is for a classification, Random forests method can be our best bet to start with. Below, we fit the model using "caret" package and its built in functions for 
+partitioning dataset and also fitting the model.
+```{r Model Fit, echo=TRUE}
+set.seed(1234)
+library(caret) ; library(e1071)
+indexPartition <- createDataPartition(y=preprocessedDF$classe, p=0.7, list=FALSE) 
+training <- preprocessedDF[indexPartition,]
+validation <- preprocessedDF[-indexPartition,]
+modFit <- train(classe~., data=training, method = "rf",tuneLength = 1, ntree = 25, trControl=trainControl( method="oob",verboseIter=FALSE,allowParallel=TRUE))
+```
+
+Random Forest model was fit using 52 predictors and 13737 samples to predict the classe variable with 5 classes A,B,C,D,E.
+
+In random forests, there is no need for cross-validation or a separate test set to get an unbiased estimate of the test set error. It is estimated internally, during the run based on the Out-of-bag error in the resample.
+
+#### Model Performance
+Now let us see how the model we built performed the predictions:
+
+```{r Model Performance, echo=TRUE}
+pred <- predict(modFit,validation)
+confusionMatrix(pred,validation$classe)
+```
+
+The model accuracy is over 98% with a statistically significant P-value.
+
+#### Project Submission
+Below are the answers submitted for the home work assignment for the 20 test cases given in the testing dataset.
+
+```{r Project Submission Answers, echo=TRUE}
+answers <- predict(modFit, testing)
+```
+
+#### Extras
+##### Correlation Plot for further feature selection/reduction
+```{r Correlation Plot,echo=TRUE}
+require(lattice) 
+z <- cor(training[,-53])
+levelplot(z)
+```
+
+
+
